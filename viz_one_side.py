@@ -1,46 +1,49 @@
 import time
 import numpy as np
+import uuid
 import os
-import sys
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import pygame
-from datetime import datetime
 from bleak import BleakClient
 from bleak import BleakScanner
 import asyncio
+import struct
 
-os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 # BLE sensor characteristic
-BLE_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-RX_CHARACTERISTIC_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-TX_CHARACTERISTIC_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+BLE_SERVICE_UUID = uuid.UUID("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
+RX_CHARACTERISTIC_UUID = uuid.UUID("6e400003-b5a3-f393-e0a9-e50e24dcca9e")
+TX_CHARACTERISTIC_UUID = uuid.UUID("6e400002-b5a3-f393-e0a9-e50e24dcca9e")
 
 baseline_data = None
 data_record = []
+
+NUM_BOARDS = 1
 
 
 def notification_handler(sender, data):
     global data_record, baseline_data
     """Notification handler for receiving BLE data."""
-    print(f"Data received: {data}")
-    data_str = data.decode('utf-8')
-    data_values = [str for str in data_str.split(',') if str != '']
+    # print(f"Data received: {data}")
+    data_decoded = struct.unpack("@15f", data)
+    # data_str = data.decode('utf-8')
+    # data_values = [str for str in data_str.split(',') if str != '']
     try:
-        data_in_floats = np.array([float(value) for value in data_values])
-
-        if data_in_floats.size == 30:
-            valid_data = data_in_floats.reshape(2, 5, 3)
+        # data_in_floats = np.array([float(value) for value in data_values])
+        data_in_floats = np.array(data_decoded)
+        if data_in_floats.size == NUM_BOARDS * 15:
+            valid_data = data_in_floats.reshape(-1, 5, 3)
             data_record.append(valid_data)
         else:
-            print(f"Received data is not in the correct format: 30 elements")
-        if(baseline_data is None):
+            print("Received data is not in the correct format: 30 elements")
+        if baseline_data is None:
             baseline_data = data_record[0]
-    
+
     except ValueError as e:
         print(f"Error converting data to float: {e}")
         data_record = []
-        
-    
+
 
 # Cannot use this, sensor not permit read
 async def read_sensor_data(client):
@@ -53,19 +56,25 @@ async def read_sensor_data(client):
         return None
 
 
-async def visualize_ble(viz_mode="3axis", scaling=7.0, record=False):
+async def visualize_ble(viz_mode="3axis", scaling=7.0):
     global data_record, baseline_data
     device = None
-    devices = await BleakScanner.discover()
-    for d in devices:
-        if BLE_SERVICE_UUID in d.metadata['uuids']:
-            print(f"Found device with the wanted UUID: device: {d.name}, address: {d.address}")
-            device = d
-    if(d is None):
+    devices = await BleakScanner.discover(return_adv=True)
+    for k, dev_adv_data in devices.items():
+        dev_data = dev_adv_data[0]
+        adv_data = dev_adv_data[1]
+        for serv_uuid in adv_data.service_uuids:
+            serv_addr = uuid.UUID(serv_uuid)
+            if serv_addr.int == BLE_SERVICE_UUID.int:
+                print(f"Device {k}: {dev_adv_data}")
+                device = dev_data
+        if device is not None:
+            break
+
+    if device is None:
         print(f"No device found with the wanted UUID: {BLE_SERVICE_UUID}")
         return None
 
-    
     # Connect to the BLE sensor via the provided Bluetooth address.
     client = BleakClient(device.address)
     await client.connect()
@@ -114,7 +123,7 @@ async def visualize_ble(viz_mode="3axis", scaling=7.0, record=False):
                 )
             elif viz_mode == "3axis":
                 if data[magid, -1] < 0:
-                    width = 2
+                    width = 3
                 else:
                     width = 0
                 pygame.draw.circle(
@@ -142,12 +151,11 @@ async def visualize_ble(viz_mode="3axis", scaling=7.0, record=False):
                     chip_location[0] + data_xy[0] / scaling,
                     chip_location[1] + data_xy[1] / scaling,
                 )
-                pygame.draw.line(window, (0, 255, 0), arrow_start, arrow_end, 2)
-    baseline = np.zeros_like(np.zeros(3))
+                pygame.draw.line(window, (0, 255, 0), arrow_start, arrow_end, 4)
+
+    last_data = None
     frame_num = 0
     running = True
-    data = []
-    clock = pygame.time.Clock()
     FPS = 60
     while running:
         window.blit(background_surface, (0, 0))
@@ -160,34 +168,33 @@ async def visualize_ble(viz_mode="3axis", scaling=7.0, record=False):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_b:
                     print("Baseline updated...")
-                    baseline = np.zeros_like(baseline)
+                    baseline_data = last_data
 
         # Read the sensor data from BLE
         await client.start_notify(RX_CHARACTERISTIC_UUID, notification_handler)
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(1.0 / FPS)
+        # await clock.tick(FPS)
         await client.stop_notify(RX_CHARACTERISTIC_UUID)
-        print(f"Two set: {data_record}")
+        # print(f"Two set: {data_record}")
         if len(data_record) > 0:
-            print(f"Data to visualize: {data_record[0]}")
-            data.append(data_record[0] - baseline_data)
+            # print(data_record[0])
+            # data.append(data_record[0] - baseline_data)
             visualize_data(data_record[0] - baseline_data)
-            
-         
+            last_data = data_record[0]
+        elif last_data is not None:
+            visualize_data(last_data - baseline_data)
 
         frame_num += 1
         pygame.display.update()
-        clock.tick(FPS)
+        # clock.tick(FPS)
         data_record = []
 
     pygame.quit()
     await client.disconnect()
 
-    if record:
-        np.savetxt(f"{filename}.txt", data)
-
 
 def main():
-    asyncio.run(visualize_ble(viz_mode="3axis", scaling=7.0, record=False))
+    asyncio.run(visualize_ble(viz_mode="3axis", scaling=7.0))
 
 
 if __name__ == "__main__":
