@@ -100,7 +100,7 @@ async def visualize_ble(viz_mode="3axis", scaling=7.0):
 
     pygame.init()
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    bg_image_path = os.path.join(dir_path, "viz_bg_twoside.png")
+    bg_image_path = os.path.join(dir_path, "imgs/viz_bg_twoside.png")
     bg_image = pygame.image.load(bg_image_path)
     image_width, image_height = bg_image.get_size()
     aspect_ratio = image_height / image_width
