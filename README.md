@@ -14,7 +14,8 @@ Anyskin-to-PC visualization via bluetooth connection (bleak)
     ```
 
 ### Running instructions
-1. Run visualizer python file
+1. Ensure that your bluetooth is on
+2. Run visualizer python file
     ```
     python viz_one_side.py
     ```
@@ -22,7 +23,7 @@ Anyskin-to-PC visualization via bluetooth connection (bleak)
     ```
     python viz_two_side.py
     ```
-2. If you would like to make the visualization more or less sensitive, use the `-s` flag to adjust the downscaling. Default value is 7.0. Therefore, to make it _more_ sensitive, reduce s to, say, 4
+3. If you would like to make the visualization more or less sensitive, use the `-s` flag to adjust the downscaling. Default value is 7.0. Therefore, to make it _more_ sensitive, reduce s to, say, 4
     ```
     python viz_one_side.py -s 4
     ```
