@@ -1,3 +1,4 @@
+import argparse
 import time
 import numpy as np
 import os
@@ -261,9 +262,18 @@ async def visualize_ble(viz_mode="3axis", scaling=7.0):
     await client.disconnect()
 
 
-def main():
-    asyncio.run(visualize_ble(viz_mode="3axis", scaling=7.0))
+def main(scaling=7.0):
+    asyncio.run(visualize_ble(viz_mode="3axis", scaling=scaling))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Visualize sensor data from BLE")
+    parser.add_argument(
+        "--scaling",
+        "-s",
+        type=float,
+        default=7.0,
+        help="Scaling factor for the sensor data visualization",
+    )
+    args = parser.parse_args()
+    main(scaling=args.scaling)
