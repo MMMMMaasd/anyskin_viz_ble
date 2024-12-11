@@ -27,3 +27,4 @@ Anyskin-to-PC visualization via bluetooth connection (bleak)
     ```
     python viz_one_side.py -s 4
     ```
+4. At any point, you can reset baseline and set all measurements to zero by pressing the `b` key.
