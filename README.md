@@ -15,11 +15,11 @@ Anyskin-to-PC visualization via bluetooth connection (bleak)
 
 ### Running instructions
 1. Ensure that your bluetooth is on
-2. Run visualizer python file
+2. Run visualizer python file. If you have just one board and one skin
     ```
     python viz_one_side.py
     ```
-    OR
+    OR if you have two boards connected to a multiplexer,
     ```
     python viz_two_side.py
     ```
